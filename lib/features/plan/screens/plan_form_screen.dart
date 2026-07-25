@@ -6,6 +6,7 @@ import '../../../config/theme.dart';
 import '../../../models/travel_models.dart';
 import '../../../services/api_client.dart';
 import '../../../services/storage.dart';
+import '../../history/screens/history_screen.dart';
 import 'plan_result_screen.dart';
 
 class PlanFormScreen extends StatefulWidget {
@@ -60,8 +61,15 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
   }
 
   Future<void> _loadHistory() async {
-    final h = await PlanStorage.loadHistory();
+    final h = await PlanStorage.loadHistoryOrEmpty();
     if (mounted) setState(() => _history = h);
+  }
+
+  Future<void> _openHistory() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const HistoryScreen()),
+    );
+    await _loadHistory();
   }
 
   @override
@@ -174,9 +182,21 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         children: [
-          Text('✈  TRAVEL PLANNER',
-              style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary, letterSpacing: 3)),
+          Row(
+            children: [
+              Expanded(
+                child: Text('✈  TRAVEL PLANNER',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary, letterSpacing: 3)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.history),
+                color: theme.colorScheme.primary,
+                tooltip: 'Kế hoạch đã lưu',
+                onPressed: _openHistory,
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           RichText(
             text: TextSpan(
@@ -198,26 +218,19 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           const SizedBox(height: 24),
 
           if (_history.isNotEmpty) ...[
-            Text('KẾ HOẠCH ĐÃ LƯU',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 2)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: _history
-                  .map((h) => InputChip(
-                        label: Text(h.title),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => PlanResultScreen(plan: h.plan)),
-                        ),
-                        onDeleted: () async {
-                          await PlanStorage.remove(h.id);
-                          _loadHistory();
-                        },
-                      ))
-                  .toList(),
+            Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: Icon(Icons.bookmark_border, color: teal),
+                title: Text('${_history.length} kế hoạch đã lưu',
+                    style: theme.textTheme.titleMedium?.copyWith(fontSize: 15)),
+                subtitle: Text(_history.first.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openHistory,
+              ),
             ),
             const SizedBox(height: 20),
           ],
