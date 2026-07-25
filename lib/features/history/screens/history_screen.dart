@@ -46,6 +46,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _delete(SavedPlan plan) async {
+    final danger = _dangerColor(Theme.of(context));
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -57,7 +58,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Hủy'),
           ),
+          // Hành động không hoàn tác được — tô màu cảnh báo để tách khỏi "Hủy".
           TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: danger,
+              textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Xóa'),
           ),
@@ -100,8 +106,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (_error != null) return _buildError();
     if (_plans!.isEmpty) return _buildEmpty();
 
-    final isDark = theme.brightness == Brightness.dark;
-    final coral = isDark ? AppColors.dCoral : AppColors.coral;
+    final coral = _dangerColor(theme);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
@@ -118,6 +123,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
+
+  /// Màu dùng cho mọi lối vào hành động xóa.
+  Color _dangerColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark ? AppColors.dCoral : AppColors.coral;
 
   Widget _buildLoading(ThemeData theme) => Center(
         child: Column(

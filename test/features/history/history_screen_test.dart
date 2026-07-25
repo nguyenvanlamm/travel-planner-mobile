@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:travel_planner/config/theme.dart';
 import 'package:travel_planner/features/history/screens/history_screen.dart';
 import 'package:travel_planner/services/storage.dart';
@@ -33,6 +34,24 @@ Map<String, dynamic> _entry({
       'created_at': createdAt.toIso8601String(),
       'plan': samplePlanJson(overview: 'Kế hoạch $destination'),
     };
+
+/// Đọc được nhưng mọi lần ghi đều hỏng — mô phỏng lỗi lưu trữ khi xóa.
+class _WriteFailsStore extends InMemorySharedPreferencesStore {
+  _WriteFailsStore.withData(super.data) : super.withData();
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    throw Exception('ổ đĩa đầy');
+  }
+}
+
+/// Nạp dữ liệu như [SharedPreferences.setMockInitialValues] nhưng ghi sẽ lỗi.
+void _setMockValuesWithFailingWrites(Map<String, Object> values) {
+  SharedPreferences.setMockInitialValues(values);
+  SharedPreferencesStorePlatform.instance = _WriteFailsStore.withData(
+    values.map((k, v) => MapEntry('flutter.$k', v)),
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -153,6 +172,63 @@ void main() {
     expect(find.text('Huế'), findsOneWidget);
     expect((await PlanStorage.loadHistory()).map((p) => p.destination),
         ['Huế']);
+  });
+
+  testWidgets('xóa thất bại thì báo lỗi và giữ nguyên mục trong danh sách',
+      (tester) async {
+    _setMockValuesWithFailingWrites({
+      _key: jsonEncode([
+        _entry(
+          id: '1',
+          destination: 'Đà Nẵng',
+          days: 4,
+          startDate: '2026-08-12',
+          createdAt: DateTime.now(),
+        ),
+      ]),
+    });
+
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xóa'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(SnackBar, 'Không xóa được kế hoạch'),
+        findsOneWidget);
+    expect(find.text('Đà Nẵng'), findsOneWidget);
+  });
+
+  testWidgets('nút xóa trong hộp thoại được tô màu cảnh báo', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      _key: jsonEncode([
+        _entry(
+          id: '1',
+          destination: 'Đà Nẵng',
+          days: 4,
+          startDate: '2026-08-12',
+          createdAt: DateTime.now(),
+        ),
+      ]),
+    });
+
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    Color? foregroundOf(String label) {
+      final button = tester.widget<TextButton>(
+          find.widgetWithText(TextButton, label));
+      return button.style?.foregroundColor
+          ?.resolve(<WidgetState>{});
+    }
+
+    expect(foregroundOf('Xóa'), AppColors.coral);
+    expect(foregroundOf('Hủy'), isNot(AppColors.coral));
   });
 
   testWidgets('trạng thái lỗi kèm nút thử lại khi dữ liệu hỏng',
