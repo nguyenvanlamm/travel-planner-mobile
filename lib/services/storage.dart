@@ -46,7 +46,8 @@ class SavedPlan {
     return SavedPlan(
       id: id,
       title: title,
-      destination: (j['destination'] as String?) ?? _destinationFromTitle(title),
+      destination:
+          (j['destination'] as String?) ?? _destinationFromTitle(title),
       departure: j['departure'] as String?,
       startDate: j['start_date'] as String?,
       days: j['days'] is int ? j['days'] as int : _daysFromTitle(title),
@@ -56,15 +57,15 @@ class SavedPlan {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'destination': destination,
-        'departure': departure,
-        'start_date': startDate,
-        'days': days,
-        'created_at': createdAt?.toIso8601String(),
-        'plan': plan.raw,
-      };
+    'id': id,
+    'title': title,
+    'destination': destination,
+    'departure': departure,
+    'start_date': startDate,
+    'days': days,
+    'created_at': createdAt?.toIso8601String(),
+    'plan': plan.raw,
+  };
 
   /// Ngày kết thúc suy ra từ ngày bắt đầu và số ngày (bao gồm ngày đầu).
   DateTime? get endDate {
@@ -156,7 +157,9 @@ class PlanStorage {
       );
       final all = [entry, ...history].take(_max).toList();
       await prefs.setString(
-          _key, jsonEncode(all.map((p) => p.toJson()).toList()));
+        _key,
+        jsonEncode(all.map((p) => p.toJson()).toList()),
+      );
     } catch (_) {
       // Lưu lịch sử là tính năng phụ — không chặn luồng tạo kế hoạch.
     }

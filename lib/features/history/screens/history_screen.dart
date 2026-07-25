@@ -50,8 +50,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Xóa kế hoạch?',
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.w600)),
+        title: Text(
+          'Xóa kế hoạch?',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.w600),
+        ),
         content: Text('"${plan.title}" sẽ bị xóa khỏi lịch sử.'),
         actions: [
           TextButton(
@@ -75,16 +77,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
     try {
       await PlanStorage.remove(plan.id);
       if (!mounted) return;
-      setState(() => _plans = [..._plans!]..removeWhere((p) => p.id == plan.id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã xóa "${plan.title}"')),
+      setState(
+        () => _plans = [..._plans!]..removeWhere((p) => p.id == plan.id),
       );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Đã xóa "${plan.title}"')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: Colors.red.shade700,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -93,8 +99,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kế hoạch đã lưu',
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.w600)),
+        title: Text(
+          'Kế hoạch đã lưu',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.w600),
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
       ),
       body: SafeArea(child: _buildBody(theme)),
@@ -115,9 +123,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         itemBuilder: (_, i) => _HistoryCard(
           plan: _plans![i],
           coral: coral,
-          onOpen: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => PlanResultScreen(plan: _plans![i].plan),
-          )),
+          onOpen: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PlanResultScreen(plan: _plans![i].plan),
+            ),
+          ),
           onDelete: () => _delete(_plans![i]),
         ),
       ),
@@ -129,33 +139,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
       theme.brightness == Brightness.dark ? AppColors.dCoral : AppColors.coral;
 
   Widget _buildLoading(ThemeData theme) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('Đang tải kế hoạch đã lưu…', style: theme.textTheme.bodySmall),
-          ],
-        ),
-      );
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const CircularProgressIndicator(),
+        const SizedBox(height: 16),
+        Text('Đang tải kế hoạch đã lưu…', style: theme.textTheme.bodySmall),
+      ],
+    ),
+  );
 
   Widget _buildError() => _StateMessage(
-        emoji: '⚠️',
-        title: 'Không tải được lịch sử',
-        message: _error!,
-        action: FilledButton(onPressed: _load, child: const Text('Thử lại')),
-      );
+    emoji: '⚠️',
+    title: 'Không tải được lịch sử',
+    message: _error!,
+    action: FilledButton(onPressed: _load, child: const Text('Thử lại')),
+  );
 
   Widget _buildEmpty() => _StateMessage(
-        emoji: '🧭',
-        title: 'Chưa có kế hoạch nào',
-        message:
-            'Mỗi kế hoạch bạn tạo sẽ tự động được lưu lại ở đây để xem lại sau.',
-        action: FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Lập kế hoạch đầu tiên  →'),
-        ),
-      );
+    emoji: '🧭',
+    title: 'Chưa có kế hoạch nào',
+    message:
+        'Mỗi kế hoạch bạn tạo sẽ tự động được lưu lại ở đây để xem lại sau.',
+    action: FilledButton(
+      onPressed: () => Navigator.of(context).pop(),
+      child: const Text('Lập kế hoạch đầu tiên  →'),
+    ),
+  );
 }
 
 class _StateMessage extends StatelessWidget {
@@ -179,13 +189,17 @@ class _StateMessage extends StatelessWidget {
           children: [
             Text(emoji, style: const TextStyle(fontSize: 40)),
             const SizedBox(height: 16),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall,
+            ),
             const SizedBox(height: 24),
             action,
           ],
@@ -222,20 +236,29 @@ class _HistoryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(plan.destination.isEmpty ? plan.title : plan.destination,
-                        style: theme.textTheme.titleMedium),
+                    Text(
+                      plan.destination.isEmpty ? plan.title : plan.destination,
+                      style: theme.textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 6),
-                    Text('🗓  ${formatPlanDates(plan)}',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(fontSize: 13.5)),
+                    Text(
+                      '🗓  ${formatPlanDates(plan)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 13.5,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('🕐  Đã lưu ${formatSavedAt(plan.createdAt)}',
-                        style: theme.textTheme.bodySmall),
+                    Text(
+                      '🕐  Đã lưu ${formatSavedAt(plan.createdAt)}',
+                      style: theme.textTheme.bodySmall,
+                    ),
                     if (plan.departure != null &&
                         plan.departure!.isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Text('✈️  Từ ${plan.departure}',
-                          style: theme.textTheme.bodySmall),
+                      Text(
+                        '✈️  Từ ${plan.departure}',
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ],
                   ],
                 ),

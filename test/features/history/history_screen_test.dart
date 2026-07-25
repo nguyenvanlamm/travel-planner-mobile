@@ -12,10 +12,8 @@ import '../../helpers/sample_plan.dart';
 
 const _key = 'travel-planner-history';
 
-Widget _wrap() => MaterialApp(
-      theme: AppTheme.light,
-      home: const HistoryScreen(),
-    );
+Widget _wrap() =>
+    MaterialApp(theme: AppTheme.light, home: const HistoryScreen());
 
 Map<String, dynamic> _entry({
   required String id,
@@ -23,17 +21,16 @@ Map<String, dynamic> _entry({
   required int days,
   required String startDate,
   required DateTime createdAt,
-}) =>
-    {
-      'id': id,
-      'title': '$destination · $days ngày',
-      'destination': destination,
-      'departure': 'Hà Nội',
-      'start_date': startDate,
-      'days': days,
-      'created_at': createdAt.toIso8601String(),
-      'plan': samplePlanJson(overview: 'Kế hoạch $destination'),
-    };
+}) => {
+  'id': id,
+  'title': '$destination · $days ngày',
+  'destination': destination,
+  'departure': 'Hà Nội',
+  'start_date': startDate,
+  'days': days,
+  'created_at': createdAt.toIso8601String(),
+  'plan': samplePlanJson(overview: 'Kế hoạch $destination'),
+};
 
 /// Đọc được nhưng mọi lần ghi đều hỏng — mô phỏng lỗi lưu trữ khi xóa.
 class _WriteFailsStore extends InMemorySharedPreferencesStore {
@@ -76,8 +73,9 @@ void main() {
     expect(find.text('Lập kế hoạch đầu tiên  →'), findsOneWidget);
   });
 
-  testWidgets('liệt kê kế hoạch mới nhất trước kèm ngày và thời điểm lưu',
-      (tester) async {
+  testWidgets('liệt kê kế hoạch mới nhất trước kèm ngày và thời điểm lưu', (
+    tester,
+  ) async {
     final now = DateTime.now();
     SharedPreferences.setMockInitialValues({
       _key: jsonEncode([
@@ -137,8 +135,9 @@ void main() {
     expect(find.text('Kế hoạch Đà Nẵng'), findsOneWidget);
   });
 
-  testWidgets('xóa một mục làm nó biến mất và không còn trong bộ nhớ',
-      (tester) async {
+  testWidgets('xóa một mục làm nó biến mất và không còn trong bộ nhớ', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       _key: jsonEncode([
         _entry(
@@ -170,12 +169,14 @@ void main() {
 
     expect(find.text('Đà Nẵng'), findsNothing);
     expect(find.text('Huế'), findsOneWidget);
-    expect((await PlanStorage.loadHistory()).map((p) => p.destination),
-        ['Huế']);
+    expect((await PlanStorage.loadHistory()).map((p) => p.destination), [
+      'Huế',
+    ]);
   });
 
-  testWidgets('xóa thất bại thì báo lỗi và giữ nguyên mục trong danh sách',
-      (tester) async {
+  testWidgets('xóa thất bại thì báo lỗi và giữ nguyên mục trong danh sách', (
+    tester,
+  ) async {
     _setMockValuesWithFailingWrites({
       _key: jsonEncode([
         _entry(
@@ -196,8 +197,10 @@ void main() {
     await tester.tap(find.text('Xóa'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(SnackBar, 'Không xóa được kế hoạch'),
-        findsOneWidget);
+    expect(
+      find.widgetWithText(SnackBar, 'Không xóa được kế hoạch'),
+      findsOneWidget,
+    );
     expect(find.text('Đà Nẵng'), findsOneWidget);
   });
 
@@ -222,17 +225,18 @@ void main() {
 
     Color? foregroundOf(String label) {
       final button = tester.widget<TextButton>(
-          find.widgetWithText(TextButton, label));
-      return button.style?.foregroundColor
-          ?.resolve(<WidgetState>{});
+        find.widgetWithText(TextButton, label),
+      );
+      return button.style?.foregroundColor?.resolve(<WidgetState>{});
     }
 
     expect(foregroundOf('Xóa'), AppColors.coral);
     expect(foregroundOf('Hủy'), isNot(AppColors.coral));
   });
 
-  testWidgets('trạng thái lỗi kèm nút thử lại khi dữ liệu hỏng',
-      (tester) async {
+  testWidgets('trạng thái lỗi kèm nút thử lại khi dữ liệu hỏng', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({_key: 'not json'});
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
@@ -252,45 +256,58 @@ void main() {
       expect(formatSavedAt(null), 'không rõ thời điểm');
       expect(formatSavedAt(now, now: now), 'vừa xong');
       expect(
-          formatSavedAt(now.subtract(const Duration(minutes: 20)), now: now),
-          '20 phút trước');
-      expect(formatSavedAt(now.subtract(const Duration(hours: 5)), now: now),
-          '5 giờ trước');
-      expect(formatSavedAt(now.subtract(const Duration(days: 3)), now: now),
-          '3 ngày trước');
-      expect(formatSavedAt(now.subtract(const Duration(days: 30)), now: now),
-          'ngày 26/06/2026');
+        formatSavedAt(now.subtract(const Duration(minutes: 20)), now: now),
+        '20 phút trước',
+      );
+      expect(
+        formatSavedAt(now.subtract(const Duration(hours: 5)), now: now),
+        '5 giờ trước',
+      );
+      expect(
+        formatSavedAt(now.subtract(const Duration(days: 3)), now: now),
+        '3 ngày trước',
+      );
+      expect(
+        formatSavedAt(now.subtract(const Duration(days: 30)), now: now),
+        'ngày 26/06/2026',
+      );
     });
 
     test('formatPlanDates rút gọn khi thiếu dữ liệu', () {
       expect(
-        formatPlanDates(SavedPlan(
-          id: '1',
-          title: 'Huế · 2 ngày',
-          destination: 'Huế',
-          startDate: '2026-02-01',
-          days: 2,
-          plan: samplePlan(),
-        )),
+        formatPlanDates(
+          SavedPlan(
+            id: '1',
+            title: 'Huế · 2 ngày',
+            destination: 'Huế',
+            startDate: '2026-02-01',
+            days: 2,
+            plan: samplePlan(),
+          ),
+        ),
         '01/02 – 02/02/2026 · 2 ngày',
       );
       expect(
-        formatPlanDates(SavedPlan(
-          id: '1',
-          title: 'Huế · 2 ngày',
-          destination: 'Huế',
-          days: 2,
-          plan: samplePlan(),
-        )),
+        formatPlanDates(
+          SavedPlan(
+            id: '1',
+            title: 'Huế · 2 ngày',
+            destination: 'Huế',
+            days: 2,
+            plan: samplePlan(),
+          ),
+        ),
         '2 ngày',
       );
       expect(
-        formatPlanDates(SavedPlan(
-          id: '1',
-          title: 'Huế',
-          destination: 'Huế',
-          plan: samplePlan(),
-        )),
+        formatPlanDates(
+          SavedPlan(
+            id: '1',
+            title: 'Huế',
+            destination: 'Huế',
+            plan: samplePlan(),
+          ),
+        ),
         'Chưa rõ ngày đi',
       );
     });

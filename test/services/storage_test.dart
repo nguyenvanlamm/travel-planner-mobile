@@ -96,6 +96,29 @@ void main() {
     expect(await PlanStorage.loadHistoryOrEmpty(), isEmpty);
   });
 
+  test('save chỉ giữ lại 20 kế hoạch mới nhất', () async {
+    SharedPreferences.setMockInitialValues({
+      _key: jsonEncode([
+        for (var i = 20; i >= 1; i--)
+          {
+            'id': '$i',
+            'title': 'Điểm $i · 2 ngày',
+            'destination': 'Điểm $i',
+            'created_at': DateTime(2026, 1, i).toIso8601String(),
+            'plan': samplePlanJson(),
+          },
+      ]),
+    });
+
+    await PlanStorage.save(samplePlan(), sampleInput());
+
+    final history = await PlanStorage.loadHistory();
+    expect(history, hasLength(20));
+    expect(history.first.destination, 'Đà Nẵng');
+    expect(history.last.destination, 'Điểm 2');
+    expect(history.map((h) => h.destination), isNot(contains('Điểm 1')));
+  });
+
   test('remove xóa đúng kế hoạch và giữ lại phần còn lại', () async {
     SharedPreferences.setMockInitialValues({
       _key: jsonEncode([

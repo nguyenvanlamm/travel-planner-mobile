@@ -19,8 +19,9 @@ void main() {
     expect(find.text('Điểm xuất phát *'), findsOneWidget);
   });
 
-  testWidgets('History screen is reachable from the form screen',
-      (WidgetTester tester) async {
+  testWidgets('History screen is reachable from the form screen', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const TravelPlannerApp());
     await tester.pump();
