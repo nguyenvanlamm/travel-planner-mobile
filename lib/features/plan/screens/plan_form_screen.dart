@@ -6,10 +6,16 @@ import '../../../config/theme.dart';
 import '../../../models/travel_models.dart';
 import '../../../services/api_client.dart';
 import '../../../services/storage.dart';
+import '../../history/screens/history_screen.dart';
 import 'plan_result_screen.dart';
 
+/// Hàm gọi API tạo kế hoạch — tách ra để test thay được bằng bản giả.
+typedef PlanCreator = Future<TravelPlan> Function(TravelInput input);
+
 class PlanFormScreen extends StatefulWidget {
-  const PlanFormScreen({super.key});
+  final PlanCreator createPlan;
+
+  const PlanFormScreen({super.key, this.createPlan = ApiClient.createPlan});
 
   @override
   State<PlanFormScreen> createState() => _PlanFormScreenState();
@@ -35,7 +41,12 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
 
   static const _paces = ['thoải mái', 'vừa phải', 'nhanh'];
   static const _interestOptions = [
-    'văn hóa', 'ẩm thực', 'thiên nhiên', 'mua sắm', 'giải trí', 'lịch sử'
+    'văn hóa',
+    'ẩm thực',
+    'thiên nhiên',
+    'mua sắm',
+    'giải trí',
+    'lịch sử',
   ];
   static const _budgetPresets = [3000000, 5000000, 10000000, 20000000];
   static const _loadingMessages = [
@@ -60,8 +71,15 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
   }
 
   Future<void> _loadHistory() async {
-    final h = await PlanStorage.loadHistory();
+    final h = await PlanStorage.loadHistoryOrEmpty();
     if (mounted) setState(() => _history = h);
+  }
+
+  Future<void> _openHistory() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const HistoryScreen()));
+    await _loadHistory();
   }
 
   @override
@@ -73,6 +91,19 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
     _budgetCtrl.dispose();
     _specialCtrl.dispose();
     super.dispose();
+  }
+
+  /// Lưu kế hoạch vào lịch sử, trả về thông báo lỗi nếu lưu hỏng.
+  ///
+  /// Lưu lịch sử là tính năng phụ nên lỗi chỉ được báo lại, không chặn việc mở
+  /// kế hoạch vừa tạo.
+  Future<String?> _saveToHistory(TravelPlan plan, TravelInput input) async {
+    try {
+      await PlanStorage.save(plan, input);
+      return null;
+    } on PlanStorageException catch (e) {
+      return e.message;
+    }
   }
 
   Future<void> _submit() async {
@@ -104,20 +135,33 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
     });
 
     try {
-      final plan = await ApiClient.createPlan(input);
-      await PlanStorage.save(plan, input);
+      final plan = await widget.createPlan(input);
+      final saveError = await _saveToHistory(plan, input);
       await _loadHistory();
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => PlanResultScreen(plan: plan),
-      ));
+      if (saveError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$saveError — bạn vẫn xem được kế hoạch vừa tạo'),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => PlanResultScreen(plan: plan)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Chưa lập được kế hoạch: ${e.toString().replaceFirst('Exception: ', '')}'),
-        backgroundColor: Colors.red.shade700,
-        duration: const Duration(seconds: 6),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Chưa lập được kế hoạch: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } finally {
       _msgTimer?.cancel();
       if (mounted) setState(() => _loading = false);
@@ -174,9 +218,25 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         children: [
-          Text('✈  TRAVEL PLANNER',
-              style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary, letterSpacing: 3)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '✈  TRAVEL PLANNER',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    letterSpacing: 3,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.history),
+                color: theme.colorScheme.primary,
+                tooltip: 'Kế hoạch đã lưu',
+                onPressed: _openHistory,
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           RichText(
             text: TextSpan(
@@ -198,26 +258,23 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           const SizedBox(height: 24),
 
           if (_history.isNotEmpty) ...[
-            Text('KẾ HOẠCH ĐÃ LƯU',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 2)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: _history
-                  .map((h) => InputChip(
-                        label: Text(h.title),
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => PlanResultScreen(plan: h.plan)),
-                        ),
-                        onDeleted: () async {
-                          await PlanStorage.remove(h.id);
-                          _loadHistory();
-                        },
-                      ))
-                  .toList(),
+            Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: Icon(Icons.bookmark_border, color: teal),
+                title: Text(
+                  '${_history.length} kế hoạch đã lưu',
+                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 15),
+                ),
+                subtitle: Text(
+                  _history.first.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openHistory,
+              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -226,7 +283,9 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           TextFormField(
             controller: _departureCtrl,
             decoration: const InputDecoration(
-                labelText: 'Điểm xuất phát *', hintText: 'VD: Hà Nội'),
+              labelText: 'Điểm xuất phát *',
+              hintText: 'VD: Hà Nội',
+            ),
             validator: (v) =>
                 (v ?? '').trim().isEmpty ? 'Nhập điểm xuất phát' : null,
           ),
@@ -277,10 +336,15 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           const SizedBox(height: 14),
           SegmentedButton<String>(
             segments: _paces
-                .map((p) => ButtonSegment(
+                .map(
+                  (p) => ButtonSegment(
                     value: p,
-                    label: Text(p[0].toUpperCase() + p.substring(1),
-                        style: const TextStyle(fontSize: 13))))
+                    label: Text(
+                      p[0].toUpperCase() + p.substring(1),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                )
                 .toList(),
             selected: {_pace},
             onSelectionChanged: (s) => setState(() => _pace = s.first),
@@ -312,7 +376,10 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
                   items: const [
                     DropdownMenuItem(value: null, child: Text('Mặc định')),
                     DropdownMenuItem(value: 'Máy bay', child: Text('Máy bay')),
-                    DropdownMenuItem(value: 'Xe khách', child: Text('Xe khách')),
+                    DropdownMenuItem(
+                      value: 'Xe khách',
+                      child: Text('Xe khách'),
+                    ),
                     DropdownMenuItem(value: 'Tàu', child: Text('Tàu')),
                     DropdownMenuItem(value: 'Ô tô', child: Text('Ô tô')),
                   ],
@@ -325,16 +392,18 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           TextFormField(
             controller: _cuisineCtrl,
             decoration: const InputDecoration(
-                labelText: 'Ẩm thực yêu thích',
-                hintText: 'VD: hải sản, đồ nướng, chay…'),
+              labelText: 'Ẩm thực yêu thích',
+              hintText: 'VD: hải sản, đồ nướng, chay…',
+            ),
           ),
           const SizedBox(height: 14),
           TextFormField(
             controller: _budgetCtrl,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-                labelText: 'Ngân sách (VND)',
-                hintText: 'Bỏ trống nếu không giới hạn'),
+              labelText: 'Ngân sách (VND)',
+              hintText: 'Bỏ trống nếu không giới hạn',
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -347,18 +416,23 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
                 selected: selected,
                 showCheckmark: false,
                 labelStyle: TextStyle(
-                    color: selected
-                        ? AppColors.paper
-                        : theme.textTheme.bodyMedium?.color),
-                onSelected: (_) => setState(() =>
-                    _budgetCtrl.text = selected ? '' : amount.toString()),
+                  color: selected
+                      ? AppColors.paper
+                      : theme.textTheme.bodyMedium?.color,
+                ),
+                onSelected: (_) => setState(
+                  () => _budgetCtrl.text = selected ? '' : amount.toString(),
+                ),
               );
             }).toList(),
           ),
           const SizedBox(height: 14),
-          Text('Sở thích — chọn bao nhiêu tùy bạn',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            'Sở thích — chọn bao nhiêu tùy bạn',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -370,11 +444,13 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
                 selected: selected,
                 showCheckmark: false,
                 labelStyle: TextStyle(
-                    color: selected
-                        ? AppColors.paper
-                        : theme.textTheme.bodyMedium?.color),
-                onSelected: (_) => setState(() =>
-                    selected ? _interests.remove(opt) : _interests.add(opt)),
+                  color: selected
+                      ? AppColors.paper
+                      : theme.textTheme.bodyMedium?.color,
+                ),
+                onSelected: (_) => setState(
+                  () => selected ? _interests.remove(opt) : _interests.add(opt),
+                ),
               );
             }).toList(),
           ),
@@ -383,8 +459,9 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
             controller: _specialCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-                labelText: 'Yêu cầu đặc biệt',
-                hintText: 'VD: đi với người già, dị ứng thực phẩm…'),
+              labelText: 'Yêu cầu đặc biệt',
+              hintText: 'VD: đi với người già, dị ứng thực phẩm…',
+            ),
           ),
           const SizedBox(height: 28),
           FilledButton(
@@ -397,11 +474,16 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
   }
 
   Widget _sectionTitle(String text, Color color) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Text(text,
-            style: GoogleFonts.fraunces(
-                fontSize: 18, fontWeight: FontWeight.w600, color: color)),
-      );
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Text(
+      text,
+      style: GoogleFonts.fraunces(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: color,
+      ),
+    ),
+  );
 
   Widget _destinationField() {
     return Autocomplete<String>(
@@ -418,7 +500,9 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
           controller: ctrl,
           focusNode: focus,
           decoration: const InputDecoration(
-              labelText: 'Điểm đến *', hintText: 'VD: Đà Nẵng, Tokyo…'),
+            labelText: 'Điểm đến *',
+            hintText: 'VD: Đà Nẵng, Tokyo…',
+          ),
           validator: (v) => (v ?? '').trim().isEmpty ? 'Nhập điểm đến' : null,
         );
       },
@@ -460,8 +544,9 @@ class _Stepper extends StatelessWidget {
   Widget build(BuildContext context) {
     return InputDecorator(
       decoration: InputDecoration(
-          labelText: label,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4)),
+        labelText: label,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -470,8 +555,10 @@ class _Stepper extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             onPressed: value > min ? () => onChanged(value - 1) : null,
           ),
-          Text('$value',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+          Text(
+            '$value',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          ),
           IconButton(
             icon: const Icon(Icons.add, size: 18),
             visualDensity: VisualDensity.compact,
@@ -493,8 +580,9 @@ class _FlyingPlane extends StatefulWidget {
 class _FlyingPlaneState extends State<_FlyingPlane>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2600))
-    ..repeat();
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat();
 
   @override
   void dispose() {
