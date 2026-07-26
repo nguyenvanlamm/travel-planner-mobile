@@ -9,8 +9,13 @@ import '../../../services/storage.dart';
 import '../../history/screens/history_screen.dart';
 import 'plan_result_screen.dart';
 
+/// Hàm gọi API tạo kế hoạch — tách ra để test thay được bằng bản giả.
+typedef PlanCreator = Future<TravelPlan> Function(TravelInput input);
+
 class PlanFormScreen extends StatefulWidget {
-  const PlanFormScreen({super.key});
+  final PlanCreator createPlan;
+
+  const PlanFormScreen({super.key, this.createPlan = ApiClient.createPlan});
 
   @override
   State<PlanFormScreen> createState() => _PlanFormScreenState();
@@ -88,6 +93,19 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
     super.dispose();
   }
 
+  /// Lưu kế hoạch vào lịch sử, trả về thông báo lỗi nếu lưu hỏng.
+  ///
+  /// Lưu lịch sử là tính năng phụ nên lỗi chỉ được báo lại, không chặn việc mở
+  /// kế hoạch vừa tạo.
+  Future<String?> _saveToHistory(TravelPlan plan, TravelInput input) async {
+    try {
+      await PlanStorage.save(plan, input);
+      return null;
+    } on PlanStorageException catch (e) {
+      return e.message;
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final input = TravelInput(
@@ -117,10 +135,19 @@ class _PlanFormScreenState extends State<PlanFormScreen> {
     });
 
     try {
-      final plan = await ApiClient.createPlan(input);
-      await PlanStorage.save(plan, input);
+      final plan = await widget.createPlan(input);
+      final saveError = await _saveToHistory(plan, input);
       await _loadHistory();
       if (!mounted) return;
+      if (saveError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$saveError — bạn vẫn xem được kế hoạch vừa tạo'),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
       Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => PlanResultScreen(plan: plan)));

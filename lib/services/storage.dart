@@ -141,6 +141,10 @@ class PlanStorage {
     }
   }
 
+  /// Lưu kế hoạch vừa tạo vào đầu lịch sử.
+  ///
+  /// Ném [PlanStorageException] khi không ghi được để màn hình báo lại cho
+  /// người dùng — nếu nuốt lỗi, người dùng sẽ tưởng kế hoạch đã được lưu.
   static Future<void> save(TravelPlan plan, TravelInput input) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -161,18 +165,19 @@ class PlanStorage {
         jsonEncode(all.map((p) => p.toJson()).toList()),
       );
     } catch (_) {
-      // Lưu lịch sử là tính năng phụ — không chặn luồng tạo kế hoạch.
+      throw const PlanStorageException('Không lưu được kế hoạch vào lịch sử');
     }
   }
 
   /// Xóa một kế hoạch khỏi lịch sử.
   ///
-  /// Ném [PlanStorageException] khi xóa thất bại để màn hình báo lại cho
-  /// người dùng.
+  /// Đọc bằng [loadHistory] chứ không phải [loadHistoryOrEmpty]: nếu dữ liệu
+  /// không đọc được thì ghi đè danh sách rỗng sẽ xóa sạch lịch sử, nên lỗi đọc
+  /// phải thành [PlanStorageException] để màn hình báo lại cho người dùng.
   static Future<void> remove(String id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final history = await loadHistoryOrEmpty();
+      final history = await loadHistory();
       final all = history.where((h) => h.id != id).map((h) => h.toJson());
       await prefs.setString(_key, jsonEncode(all.toList()));
     } catch (_) {

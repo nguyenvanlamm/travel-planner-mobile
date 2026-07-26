@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel_planner/services/storage.dart';
 
+import '../helpers/failing_prefs.dart';
 import '../helpers/sample_plan.dart';
 
 const _key = 'travel-planner-history';
@@ -130,5 +131,29 @@ void main() {
     await PlanStorage.remove('1');
     final history = await PlanStorage.loadHistory();
     expect(history.map((h) => h.destination), ['Sapa']);
+  });
+
+  test(
+    'remove báo lỗi và giữ nguyên dữ liệu khi không đọc được lịch sử',
+    () async {
+      SharedPreferences.setMockInitialValues({_key: 'not json at all'});
+
+      await expectLater(
+        PlanStorage.remove('1'),
+        throwsA(isA<PlanStorageException>()),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(_key), 'not json at all');
+    },
+  );
+
+  test('save ném PlanStorageException khi ghi thất bại', () async {
+    setMockValuesWithFailingWrites({});
+
+    await expectLater(
+      PlanStorage.save(samplePlan(), sampleInput()),
+      throwsA(isA<PlanStorageException>()),
+    );
   });
 }
